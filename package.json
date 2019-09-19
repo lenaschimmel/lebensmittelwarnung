@@ -1,0 +1,27 @@
+{
+  "name": "lebensmittelwarnung",
+  "version": "1.0.0",
+  "description": "Alternativer, inoffizieller Twitterbot für das Portal https://www.lebensmittelwarnung.de",
+  "main": "bot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lenaschimmel/lebensmittelwarnung.git"
+  },
+  "keywords": [
+    "twitter",
+    "bot"
+  ],
+  "author": "Lena Schimmel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lenaschimmel/lebensmittelwarnung/issues"
+  },
+  "homepage": "https://github.com/lenaschimmel/lebensmittelwarnung#readme",
+  "dependencies": {
+    "multer": "^1.4.2",
+    "twit": "^2.2.11"
+  }
+}
