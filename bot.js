@@ -10,9 +10,9 @@ const readFile = util.promisify(fs.readFile);
 var upload = multer({ storage: multer.memoryStorage() })
 var T = new Twit(config);
 
-async function upload_image(image_path, alt_text) {
+async function upload_image(imagePath, altText) {
     console.log('Opening an image...');
-    var b64content = await readFile(image_path, { encoding: 'base64' });
+    var b64content = await readFile(imagePath, { encoding: 'base64' });
 
     console.log('Uploading an image...');
 
@@ -20,8 +20,19 @@ async function upload_image(image_path, alt_text) {
         T.post('media/upload', { media_data: b64content }, function (err, data, response) {
             if(err)
                 reject(err);
-            else 
-                resolve(data);
+            else {
+                // now we can assign alt text to the media, for use by screen readers and
+                // other text-based presentations and interpreters
+                var mediaIdStr = data.media_id_string;
+                var meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
+
+                T.post('media/metadata/create', meta_params, function (err, data, response) {
+                    if(err)
+                        reject(err);
+                    else 
+                        resolve(mediaIdStr);
+                });
+            }
         });
      });
 }
@@ -45,9 +56,9 @@ async function post_tweet(text, mediaArray) {
 
 
 (async () => {
-    var text = "Die Twitter-Schnittstelle wird gerade doppelt asynchron getestet.";
-    var media = await upload_image("logo.png", "Das Logo von produkt_warnung.");
-    var result = await post_tweet(text, new Array(media.media_id_string));
+    var text = "Die Twitter-Schnittstelle wird gerade doppelt asynchron mit alt_text getestet.";
+    var mediaId = await upload_image("logo.png", "Das Logo von produkt_warnung.");
+    var result = await post_tweet(text, new Array(mediaId));
     
     console.log("Running.");
 })();
