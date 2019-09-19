@@ -59,4 +59,7 @@ typings/
 
 # next.js build output
 .next
+
+# app specific
 config.js
+img/download/**
