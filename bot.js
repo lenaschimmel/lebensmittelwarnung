@@ -8,6 +8,7 @@ const cheerio = require('cheerio');
 const btoa = require('btoa');
 const https = require('https');
 const streamBuffers = require('stream-buffers');
+const speedDate = require('speed-date');
 
 config = require(path.join(__dirname, 'config.js'));
 const readFile = util.promisify(fs.readFile);
@@ -95,6 +96,7 @@ async function parseDetailPage(sourceUrl) {
     });
 
     map["images"] = Array.from(images);
+    map["sourceUrl"] = sourceUrl;
 
     return map;
 }
@@ -117,9 +119,77 @@ async function downloadUrl(url) {
      });    
 }
 
-(async () => {
+function simpleProducerName(nameString) {
+    var useNext = false;
+    var acceptableMatch;
+
+    // Split along newlines and commas
+    for(var part of nameString.split(/[\r\n,]+/)) {
+        
+        part = part.trim();
+
+        // rule out empty and very short parts
+        if(part.length < 3) continue;
+        
+        // if the previous line was something like "Hersteller", this line must be the best one to use
+        if(useNext) {
+            acceptableMatch = part;
+            break;
+        }
+
+        // reset the flag
+        useNext = false;
+
+        // A "Hersteller" line indicates that the next line should be used
+        if(part == "Hersteller" || part == "Hersteller:") {
+            useNext = true;
+            continue;
+        }  
+
+        // A "Großhändler" line shall never be used itself, but the next line will be treated normally
+        if(part == "Großhändler" || part == "Großhändler:")  {
+            continue;
+        }
+
+        // Remember the first line that has not been ruled out
+        if(!acceptableMatch)
+            acceptableMatch = part;
+    }
+
+    return acceptableMatch || nameString;
+}
+
+function limitLength(maxLength, string) {
+    if(string.length > maxLength) {
+        string = string.substr(0, maxLength - 2) + "…"; // substract 2, because the ellipse counts as two chars on twitter
+    }
+    return string;
+}
+
+function composeTweetText(page) {
+    var simplifiedName = page.name.replace(/\s+/g, " ");
+    var producer = simpleProducerName(page.producer);
+
+    var lines = [];
+    // Lenght: 21 + content (max 30 + 30 + 30) = 111
+    lines.push('Warnung für ' + limitLength(30, page.type) + ' "' + limitLength(30, simplifiedName) + '" von ' + limitLength(30, producer) + ':');
+    
+    // Length: 100
+    lines.push(limitLength(100, page.reason));
+
+    // Length: 11 + 20 = 31
+    lines.push('Mehr Info: ' + page.sourceUrl);
+
+    // Length:22
+    if(page.date != speedDate("DD.MM.YYYY", new Date()))
+        lines.push('(Eintrag vom ' + page.date + ')');
+
+    // Total length: 111 + 100 + 31 + 22 + 3*2 = 270
+    return lines.join("\n\n");
+}
+
+async function handlePage(sourceUrl) {
     console.log("Parsing source page…");
-    const sourceUrl = "https://www.lebensmittelwarnung.de/bvl-lmw-de/detail/lebensmittel/45259";
     var page = await parseDetailPage(sourceUrl);
     console.log(page);
 
@@ -134,15 +204,15 @@ async function downloadUrl(url) {
         index ++;
     }
 
-    console.log("Sending tweet…");
-    var simplifiedName = page.name.replace(/\s+/g, " ");
-    var lines = [];
-    lines.push('Warnung vom ' + page.date +  ' für ' + page.type + ' "' + simplifiedName + '":');
-    lines.push(page.reason);
-    lines.push('Mehr Informationen unter ' + sourceUrl);
-    var text = lines.join("\n\n");
-    var result = await post_tweet(text, mediaIds);
+    console.log("Composing tweet…");
 
-    console.log("Done.");
+    text = composeTweetText(page);
     
+    var result = await post_tweet(text, mediaIds);
+}
+
+(async () => {
+    const sourceUrl = "https://www.lebensmittelwarnung.de/bvl-lmw-de/detail/lebensmittel/45259";
+    await handlePage(sourceUrl);
+    console.log("Done.");
 })();
