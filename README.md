@@ -1,6 +1,6 @@
 # lebensmittelwarnung
 Alternativer, inoffizieller Twitterbot für das Portal https://www.lebensmittelwarnung.de
 
-Diese Software steht gerade am Anfang der Entwicklung und wird getestet.
+Diese Software befindet sich noch in der Entwicklung und wird derzeit getestet.
 
-Tweets erscheinen später auf dem Account [@produkt_warnung - Produktwarnungen Lesbar](https://twitter.com/produkt_warnung).
+Tweets erscheinen auf dem Account [@produkt_warnung - Produktwarnungen Lesbar](https://twitter.com/produkt_warnung).
