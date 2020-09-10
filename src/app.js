@@ -332,7 +332,7 @@ async function handlePage(sourceUrl) {
         var pages = await pdf2text(content);
 
         for (const page of pages) {
-            console.log("Page content: " + page);
+            // console.log("Page content: " + page);
             altTextString = altTextString + page.join('');
         }
     
@@ -391,7 +391,7 @@ async function handlePage(sourceUrl) {
         if (!files_done.includes(detailUrl)) {
             console.log("Now handling detail page: " + detailUrl);
             files_done.push(detailUrl);
-            await handlePage(sourceUrl);
+            await handlePage(detailUrl);
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
