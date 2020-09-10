@@ -61,5 +61,6 @@ typings/
 .next
 
 # app specific
-config.js
-img/download/**
+src/config.js
+tmp
+innertmp

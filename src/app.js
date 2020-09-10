@@ -11,6 +11,7 @@ const streamBuffers = require('stream-buffers');
 const speedDate = require('speed-date');
 const markdownpdf = require("markdown-pdf");
 const PDFImage = require("pdf-image").PDFImage;
+const pdf2text = require('pdf2text')
 
 config = require(path.join(__dirname, 'config.js'));
 const readFile = util.promisify(fs.readFile);
@@ -77,9 +78,25 @@ const knownKeys = {
     "Produktionsdatum:" : "proddate",
     "Los-Kennzeichnung:" : "los",
     "Homepage des Herstellers:" : "homepage",
-    "Weitere Informationen:" : "info",
     "Weitere Informationen:" : "info"
 };
+
+
+async function parseListPage(sourceUrl) {
+    var content = await request(sourceUrl);
+    const $ = cheerio.load(content);
+
+    var detail_pages = new Set();
+    $("a.contentLink").each(function(i, elem) {
+        var href = $(this).attr("href");
+        if(href.substr(0,1) == "/") {
+            href = "https://www.lebensmittelwarnung.de" + href;
+        }
+        detail_pages.add(href);
+    });
+
+    return Array.from(detail_pages);
+}
 
 async function parseDetailPage(sourceUrl) {
     var content = await request(sourceUrl);
@@ -89,9 +106,29 @@ async function parseDetailPage(sourceUrl) {
     $(".attachment-group a").each(function(i, elem) {
         var href = $(this).attr("href");
         if(href.substr(0,1) == "/") {
-            href = "https://www.lebensmittelwarnung.de/" + href;
+            href = "https://www.lebensmittelwarnung.de" + href;
         }
         images.add(href);
+    });
+
+    if (images.size == 0 ) {
+        // If there are no links to larger images, use the small images which are embedded
+        $(".attachment-group img").each(function(i, elem) {
+            var href = $(this).attr("src");
+            if(href.substr(0,1) == "/") {
+                href = "https://www.lebensmittelwarnung.de" + href;
+            }
+            images.add(href);
+        });
+    }
+
+    var attachments = new Set();
+    $("a.attachment").each(function(i, elem) {
+        var href = $(this).attr("href");
+        if(href.substr(0,1) == "/") {
+            href = "https://www.lebensmittelwarnung.de" + href;
+        }
+        attachments.add(href);
     });
 
     var map = {};
@@ -105,6 +142,7 @@ async function parseDetailPage(sourceUrl) {
     });
 
     map["images"] = Array.from(images);
+    map["attachments"] = Array.from(attachments);
     map["sourceUrl"] = sourceUrl;
 
     return map;
@@ -234,9 +272,9 @@ async function createFullInfoImage(page) {
             altTextString = "Das Bild enthält die vollständigen, ungekürzten Informationen der Meldung, die leider zu lang sind für eine Bildbeschreibung auf Twitter. " + citation;
         }
 
-        const pdfPath = "img/pdf/markdown.pdf";
+        const pdfPath = "tmp/img/pdf/markdown.pdf";
 
-        markdownpdf( { "remarkable" : { "html" : true }, "cssPath" : "pdf.css" } ).from.string(md.join("\n\n")).to(pdfPath, async function() {
+        markdownpdf( { "remarkable" : { "html" : true }, "cssPath" : "data/pdf.css" } ).from.string(md.join("\n\n")).to(pdfPath, async function() {
             console.log("Done PDF");
             
             try {
@@ -270,17 +308,62 @@ async function handlePage(sourceUrl) {
     
     console.log("Downloading and uploading images…");
     var mediaIds = [];
-    var index = 1;
-    for(var imgUrl of page.images) {
-        var content = await downloadUrl(imgUrl);
-        fs.writeFileSync("img/download/image" + index + ".jpg", content);
-        var mediaId = await upload_image(content, "Produktabbildung " + index + " von " + page.images.length);
+    var image_index = 1;
+    var attachment_index = 1;
+    var media_index = 1;
+
+    for(var attachmentUrl of page.attachments) {
+        console.log("Downloading attachment " + attachmentUrl);
+        var content = await downloadUrl(attachmentUrl);
+        var pdfPath = "tmp/img/download/pdf" + attachment_index + ".pdf";
+        fs.writeFileSync(pdfPath, content);
+
+        var pdfImage = new PDFImage(pdfPath, {
+            convertOptions: {
+                "-alpha" : "background",
+                "-alpha" : "off",
+                "-background": '"#ff9100"',
+                "-density" : "300"
+            }
+        });
+
+        var altTextString = "Presseinformation " + attachment_index + " von " + page.attachments.length + ". Bei mehrseitigen PDF-Anhängen wird nur die jeweils erste Seite als Bild angehangen. Inhalt der PDF: ";
+
+        var pages = await pdf2text(content);
+
+        for (const page of pages) {
+            console.log("Page content: " + page);
+            altTextString = altTextString + page.join('');
+        }
+    
+        altTextString = limitLength(1000, altTextString);
+        
+        var imagePath = await pdfImage.convertPage(0);
+        console.log("Converted pdf attachment: " + imagePath);
+        var imageData = fs.readFileSync(imagePath);
+       
+        var mediaId = await upload_image(imageData, altTextString);
         mediaIds.push(mediaId);
-        index ++;
-        if(index > 3)
+        attachment_index ++;
+        media_index ++;
+        if(media_index > 3)
             break; // we need the 4th image for the full information page
     }
 
+    if(media_index <= 3) {
+        for(var imgUrl of page.images) {
+            console.log("Downloading image " + imgUrl);
+            var content = await downloadUrl(imgUrl);
+            fs.writeFileSync("tmp/img/download/image" + image_index + ".jpg", content);
+
+            var mediaId = await upload_image(content, "Produktabbildung " + image_index + " von " + page.images.length);
+            mediaIds.push(mediaId);
+            image_index ++;
+            media_index ++;
+            if(media_index > 3)
+                break; // we need the 4th image for the full information page
+        }
+    }
     mediaIds.push(await createFullInfoImage(page));
 
     console.log("Composing tweet…");
@@ -291,7 +374,30 @@ async function handlePage(sourceUrl) {
 }
 
 (async () => {
-    const sourceUrl = "https://www.lebensmittelwarnung.de/bvl-lmw-de/detail/bedarfsgegenstaende/44826";
-    await handlePage(sourceUrl);
+    var files_done = [];
+    try {
+        let rawdata = fs.readFileSync('tmp/files_done.json') || "[]";
+        files_done = JSON.parse(rawdata);
+    } catch {
+        // nothing
+    }
+
+    const listUrl = "https://www.lebensmittelwarnung.de/bvl-lmw-de/liste/alle/deutschlandweit/10/0";
+    
+    let detailUrls = await parseListPage(listUrl);
+    detailUrls.reverse();
+
+    for (const detailUrl of detailUrls) {
+        if (!files_done.includes(detailUrl)) {
+            console.log("Now handling detail page: " + detailUrl);
+            files_done.push(detailUrl);
+            await handlePage(sourceUrl);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+
+    let data = JSON.stringify(files_done, null, 2);
+    fs.writeFileSync('tmp/files_done.json', data);
+
     console.log("Done.");
 })();
