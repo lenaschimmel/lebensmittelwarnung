@@ -3,7 +3,7 @@ FROM node:14-buster
 # Create app directory
 WORKDIR /usr/src/app
 
-RUN apt-get update && apt-get install -y imagemagick ghostscript poppler-utils cron
+RUN apt-get update && apt-get install -y imagemagick ghostscript poppler-utils cron openssl curl
 
 # Copy crontab.txt file to the cron.d directory
 COPY crontab.txt /etc/cron.d/crontab.txt

@@ -19,6 +19,11 @@ const readFile = util.promisify(fs.readFile);
 var upload = multer({ storage: multer.memoryStorage() })
 var T = new Twit(config);
 
+process.on('unhandledRejection', error => {
+    console.log(error);
+    process.exit(1);
+});
+
 async function upload_image(imageContent, altText) {
     //console.log('Opening an image...');
     var b64content = btoa(imageContent);
@@ -391,7 +396,7 @@ async function handlePage(sourceUrl) {
         if (!files_done.includes(detailUrl)) {
             console.log("Now handling detail page: " + detailUrl);
             files_done.push(detailUrl);
-            await handlePage(sourceUrl);
+            await handlePage(detailUrl);
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
