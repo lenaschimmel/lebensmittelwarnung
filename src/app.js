@@ -286,8 +286,7 @@ async function createFullInfoImage(page) {
                 var pdfImage = new PDFImage(pdfPath, {
                     convertOptions: {
                         "-alpha" : "background",
-                        "-alpha" : "off",
-                        "-background": "#ffffff",
+                        "-background": "white",
                         "-density" : "300"
                     }
                 });
@@ -326,8 +325,7 @@ async function handlePage(sourceUrl) {
         var pdfImage = new PDFImage(pdfPath, {
             convertOptions: {
                 "-alpha" : "background",
-                "-alpha" : "off",
-                "-background": "#ffffff",
+                "-background": "white",
                 "-density" : "300"
             }
         });
