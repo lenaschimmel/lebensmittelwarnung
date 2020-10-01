@@ -285,7 +285,7 @@ async function createFullInfoImage(page) {
             try {
                 var pdfImage = new PDFImage(pdfPath, {
                     convertOptions: {
-                        "-alpha" : "Opaque",
+                        "-alpha" : "background",
                         "-background": "white",
                         "-density" : "300"
                     }
