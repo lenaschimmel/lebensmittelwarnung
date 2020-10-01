@@ -287,7 +287,7 @@ async function createFullInfoImage(page) {
                     convertOptions: {
                         "-alpha" : "background",
                         "-alpha" : "off",
-                        "-background": '"#ff9100"',
+                        "-background": "#ffffff",
                         "-density" : "300"
                     }
                 });
@@ -327,7 +327,7 @@ async function handlePage(sourceUrl) {
             convertOptions: {
                 "-alpha" : "background",
                 "-alpha" : "off",
-                "-background": '"#ff9100"',
+                "-background": "#ffffff",
                 "-density" : "300"
             }
         });
