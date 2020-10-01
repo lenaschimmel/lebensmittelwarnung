@@ -19,6 +19,11 @@ const readFile = util.promisify(fs.readFile);
 var upload = multer({ storage: multer.memoryStorage() })
 var T = new Twit(config);
 
+process.on('unhandledRejection', error => {
+    console.log(error);
+    process.exit(1);
+});
+
 async function upload_image(imageContent, altText) {
     //console.log('Opening an image...');
     var b64content = btoa(imageContent);
@@ -282,7 +287,7 @@ async function createFullInfoImage(page) {
                     convertOptions: {
                         "-alpha" : "background",
                         "-alpha" : "off",
-                        "-background": '"#ff9100"',
+                        "-background": "#ffffff",
                         "-density" : "300"
                     }
                 });
@@ -322,7 +327,7 @@ async function handlePage(sourceUrl) {
             convertOptions: {
                 "-alpha" : "background",
                 "-alpha" : "off",
-                "-background": '"#ff9100"',
+                "-background": "#ffffff",
                 "-density" : "300"
             }
         });
