@@ -322,11 +322,12 @@ async function handlePage(sourceUrl) {
         var pdfPath = "tmp/img/download/pdf" + attachment_index + ".pdf";
         fs.writeFileSync(pdfPath, content);
 
+        // options according to https://stackoverflow.com/a/23118311/39946
         var pdfImage = new PDFImage(pdfPath, {
             convertOptions: {
-                "-alpha" : "background",
+                "-density" : "300",
                 "-background": "white",
-                "-density" : "300"
+                "-alpha" : "remove"
             }
         });
 
